@@ -106,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user: userData,
         isLoading: false,
       });
-      console.log('access found');
+      
       
      router.replace('/app/home')
       toast.success('Welcome back!');

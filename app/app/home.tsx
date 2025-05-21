@@ -1,8 +1,9 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from "react-native";
-import { ScrollView, TextInput } from "react-native-gesture-handler";
+import { usePrediction } from '@/contexts/PredictionProvider';
+import * as ImagePicker from 'expo-image-picker';
 import { Camera, Send } from 'lucide-react-native';
-import * as ImagePicker from 'expo-image-picker';  // new import
+import React, { useState } from "react";
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, TextInput } from "react-native-gesture-handler";
 
 type Message = {
   id: string;
@@ -15,8 +16,8 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const { predict } = usePrediction();
 
-  // Ask for permissions and pick image
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -27,49 +28,29 @@ export default function Home() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: 'images',
       quality: 0.7,
-      base64: true,  // important for sending image data
+      base64: true,
     });
 
     if (!result.canceled) {
       setSelectedImage(result.assets[0].uri);
-      // Optionally you can add this image as a message right away or wait for send
     }
   };
 
-  // Call API for prediction - replace with your own API URL and token
   const callPredictionAPI = async (imageUri: string) => {
     try {
-      const formData = new FormData();
-
-      // Convert local file URI to something FormData can use
-      // React Native expects { uri, name, type }
-      formData.append('image', {
-        uri: imageUri,
-        name: 'plant.jpg',
-        type: 'image/jpeg',
-      } as any);
-
-      const response = await fetch('http://127.0.0.1:8000/api/data/predict/', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ1MzE0NzA3LCJpYXQiOjE3NDUyMjgzMDcsImp0aSI6IjIxMTJhZGVmOWFjOTRlN2RhOGI4NWQ0NzY1MWMyNmExIiwidXNlcl9pZCI6NH0.BtX4JTXiA9nxpwEbrwz9KIwwjS4trRO9oe_5Csl6e3I',
-          'Content-Type': 'multipart/form-data',
-        },
-        body: formData,
-      });
-
-      const json = await response.json();
-      return json;
+      const result = await predict(imageUri);
+      console.log('this is the result of prediction', result);
+      return result;
     } catch (error) {
+      console.log(error);
       Alert.alert("Error", "Failed to get prediction from server.");
       return null;
     }
   };
 
   const handleSend = async () => {
-    if (!inputText.trim() && !selectedImage) return; // Nothing to send
+    if (!inputText.trim() && !selectedImage) return;
 
-    // Add user's message first (text or image)
     const newMessages: Message[] = [];
 
     if (selectedImage) {
@@ -91,7 +72,6 @@ export default function Home() {
     setInputText('');
     setSelectedImage(null);
 
-    // Call prediction API if image sent
     if (selectedImage) {
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
@@ -102,9 +82,14 @@ export default function Home() {
       const prediction = await callPredictionAPI(selectedImage);
 
       if (prediction) {
+        const { disease, confidence, other_predictions } = prediction;
+
+        const resultText = `🔍 Most Likely Disease: **${disease}**\nConfidence: ${confidence.toFixed(2)}%\n\n📌 Other Possibilities:\n` +
+          other_predictions.map(p => `• ${p.disease} (${p.confidence.toFixed(2)}%)`).join('\n');
+
         setMessages(prev => [...prev.slice(0, -1), {
           id: (Date.now() + 2).toString(),
-          text: JSON.stringify(prediction, null, 2), // You can format better
+          text: resultText,
           isUser: false,
         }]);
       } else {
@@ -115,7 +100,6 @@ export default function Home() {
         }]);
       }
     } else {
-      // If only text, simple response (mock)
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         text: "I'll analyze your query and provide a detailed response shortly.",
@@ -149,6 +133,9 @@ export default function Home() {
       </ScrollView>
 
       <View style={styles.inputContainer}>
+        {selectedImage && (
+          <Image source={{ uri: selectedImage }} style={styles.previewImage} />
+        )}
         <TouchableOpacity style={styles.cameraButton} onPress={pickImage}>
           <Camera size={24} color="#2E7D32" />
         </TouchableOpacity>
@@ -168,9 +155,15 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-   container: {
+  container: {
     flex: 1,
     backgroundColor: '#F7FAF7',
+  },
+  previewImage: {
+    width: 100,
+    height: 100,
+    margin: 8,
+    borderRadius: 8,
   },
   chatContainer: {
     flex: 1,
