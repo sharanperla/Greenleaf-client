@@ -15,6 +15,14 @@ export default function AppLayout() {
         name="settings"
         options={{ title: "Settings" }}
       />
+      <Drawer.Screen
+        name="deseases"
+        options={{ title: "Desease Library" }}
+      />
+      <Drawer.Screen
+        name="community"
+        options={{ title: "Community" }}
+      />
          <Drawer.Screen
         name="logout"
         options={{ title: "Logout" }}
