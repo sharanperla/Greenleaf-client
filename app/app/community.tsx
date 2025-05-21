@@ -3,13 +3,13 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TextInput,
   Button,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 
 const Community = () => {
@@ -27,9 +27,10 @@ const Community = () => {
 
   const [inputText, setInputText] = useState('');
   const ws = useRef<WebSocket | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  // Messages state for local updates
   const [messagesState, setMessages] = useState(messages);
+  const yourUserId = 2; // Replace this with logged-in user ID dynamically
 
   useEffect(() => {
     fetchRooms();
@@ -38,16 +39,10 @@ const Community = () => {
   useEffect(() => {
     if (!currentRoom) return;
 
-    if (ws.current) {
-      ws.current.close();
-    }
+    if (ws.current) ws.current.close();
 
     const wsUrl = `ws://192.168.43.234:8000/ws/chat/${currentRoom.name}/`;
     ws.current = new WebSocket(wsUrl);
-
-    ws.current.onopen = () => {
-      console.log('WebSocket connected');
-    };
 
     ws.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -56,30 +51,21 @@ const Community = () => {
           ...prev,
           {
             id: data.id || Date.now(),
-            text: data.message,
-            user: data.username,
-            createdAt: data.created_at,
+            content: data.message,
+            user: {
+              id: data.user_id,
+              username: data.username,
+            },
+            created_at: data.created_at,
           },
         ]);
       }
     };
 
-    ws.current.onerror = (error) => {
-      console.error('WebSocket error', error);
-    };
-
-    ws.current.onclose = () => {
-      console.log('WebSocket disconnected');
-    };
-
     fetchMessages(currentRoom.id);
-
-    return () => {
-      ws.current?.close();
-    };
+    return () => ws.current?.close();
   }, [currentRoom]);
 
-  // Sync messages from context when fetched
   useEffect(() => {
     setMessages(messages);
   }, [messages]);
@@ -101,32 +87,21 @@ const Community = () => {
       keyboardVerticalOffset={80}
     >
       <View style={styles.container}>
-        <ScrollView
-          horizontal
-          style={styles.roomsList}
-          contentContainerStyle={{ alignItems: 'center', paddingHorizontal: 10 }}
-          showsHorizontalScrollIndicator={false}
-        >
+        <Text style={styles.title}>Rooms</Text>
+        <ScrollView style={styles.roomsList}>
           {rooms.map((room) => {
             const isSelected = currentRoom?.id === room.id;
             return (
               <TouchableOpacity
-                key={room.id.toString()}
+                key={room.id}
                 style={[styles.roomCard, isSelected && styles.selectedRoomCard]}
                 onPress={() => selectRoom(room)}
               >
                 <Text style={[styles.roomName, isSelected && styles.selectedRoomName]}>
                   {room.name}
                 </Text>
-                <Text
-                  style={styles.roomDescription}
-                  numberOfLines={2}
-                  ellipsizeMode="tail"
-                >
+                <Text style={styles.roomDescription} numberOfLines={2}>
                   {room.description || 'No description'}
-                </Text>
-                <Text style={styles.roomCreatedAt}>
-                  Created: {new Date(room.created_at).toLocaleDateString()}
                 </Text>
               </TouchableOpacity>
             );
@@ -142,18 +117,31 @@ const Community = () => {
 
           <ScrollView
             style={styles.messagesContainer}
-            contentContainerStyle={{ paddingVertical: 10 }}
-            inverted={true} // ScrollView does not support inverted prop, so we reverse manually below
+            ref={scrollViewRef}
+            onContentSizeChange={() =>
+              scrollViewRef.current?.scrollToEnd({ animated: true })
+            }
           >
-            {[...messagesState].slice().reverse().map((msg) => (
-              <View key={msg.id.toString()} style={styles.message}>
-                <Text style={styles.messageUser}>{msg.user}</Text>
-                <Text>{msg.text}</Text>
-                <Text style={styles.messageTime}>
-                  {new Date(msg.createdAt).toLocaleTimeString()}
-                </Text>
-              </View>
-            ))}
+            {messagesState.map((msg) => {
+              const isOwnMessage = msg.user?.id === yourUserId;
+              return (
+                <View
+                  key={msg.id}
+                  style={[
+                    styles.message,
+                    isOwnMessage ? styles.ownMessage : styles.otherMessage,
+                  ]}
+                >
+                  {!isOwnMessage && (
+                    <Text style={styles.messageUser}>{msg.user?.username}</Text>
+                  )}
+                  <Text style={styles.messageText}>{msg.content}</Text>
+                  <Text style={styles.messageTime}>
+                    {new Date(msg.created_at).toLocaleTimeString()}
+                  </Text>
+                </View>
+              );
+            })}
           </ScrollView>
         </View>
 
@@ -175,27 +163,23 @@ const Community = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 10 },
-  roomsList: { height: 110, borderBottomWidth: 1, borderColor: '#ddd', marginBottom: 10 },
+  title: { fontWeight: 'bold', fontSize: 20, marginBottom: 5 },
+  roomsList: {
+    maxHeight: 150,
+    marginBottom: 10,
+  },
   roomCard: {
     padding: 10,
     backgroundColor: '#f0f0f0',
     borderRadius: 8,
-    marginRight: 12,
-    width: 200,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
+    marginBottom: 8,
   },
   selectedRoomCard: {
     backgroundColor: '#d0e8ff',
-    shadowOpacity: 0.3,
-    elevation: 5,
   },
   roomName: {
     fontWeight: 'bold',
-    fontSize: 18,
+    fontSize: 16,
     color: 'gray',
   },
   selectedRoomName: {
@@ -204,26 +188,57 @@ const styles = StyleSheet.create({
   roomDescription: {
     fontSize: 14,
     color: '#555',
-    marginTop: 4,
   },
-  roomCreatedAt: {
+  chatArea: {
+    flex: 1,
+    borderTopWidth: 1,
+    borderColor: '#ddd',
+    paddingTop: 10,
+  },
+  messagesContainer: {
+    flex: 1,
+    marginBottom: 10,
+  },
+  message: {
+    maxWidth: '70%',
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  ownMessage: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#dcf8c6',
+    borderTopRightRadius: 0,
+  },
+  otherMessage: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 0,
+  },
+  messageText: {
+    fontSize: 16,
+  },
+  messageUser: {
+    fontWeight: 'bold',
+    marginBottom: 2,
     fontSize: 12,
-    color: '#999',
-    marginTop: 6,
-    fontStyle: 'italic',
+    color: '#555',
   },
-  chatArea: { flex: 1 },
-  title: { fontWeight: 'bold', fontSize: 20, marginBottom: 5 },
-  messagesContainer: { flex: 1 },
-  message: { marginVertical: 4, backgroundColor: '#eee', padding: 8, borderRadius: 5 },
-  messageUser: { fontWeight: 'bold' },
-  messageTime: { fontSize: 10, color: 'gray', alignSelf: 'flex-end' },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+  messageTime: {
+    fontSize: 10,
+    color: 'gray',
+    alignSelf: 'flex-end',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+  },
   input: {
     flex: 1,
     borderWidth: 1,
     borderColor: '#ccc',
-    borderRadius: 5,
+    borderRadius: 6,
     padding: 8,
     marginRight: 10,
   },
