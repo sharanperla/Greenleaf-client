@@ -10,6 +10,7 @@ type Message = {
   text: string;
   isUser: boolean;
   image?: string;
+  prediction?: any;
 };
 
 export default function Home() {
@@ -26,7 +27,7 @@ export default function Home() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.7,
       base64: true,
     });
@@ -82,15 +83,11 @@ export default function Home() {
       const prediction = await callPredictionAPI(selectedImage);
 
       if (prediction) {
-        const { disease, confidence, other_predictions } = prediction;
-
-        const resultText = `🔍 Most Likely Disease: **${disease}**\nConfidence: ${confidence.toFixed(2)}%\n\n📌 Other Possibilities:\n` +
-          other_predictions.map(p => `• ${p.disease} (${p.confidence.toFixed(2)}%)`).join('\n');
-
         setMessages(prev => [...prev.slice(0, -1), {
           id: (Date.now() + 2).toString(),
-          text: resultText,
+          text: '',
           isUser: false,
+          prediction,
         }]);
       } else {
         setMessages(prev => [...prev.slice(0, -1), {
@@ -108,6 +105,40 @@ export default function Home() {
     }
   };
 
+  const PredictionDetails = ({ prediction }: { prediction: any }) => {
+    const { disease, confidence, details, other_predictions } = prediction;
+
+    return (
+      <View style={{ paddingVertical: 8 }}>
+        <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 4, color: '#2E7D32' }}>
+          🔍 Most Likely Disease: {disease}
+        </Text>
+        <Text>Confidence: {confidence.toFixed(2)}%</Text>
+
+        <Text style={{ marginTop: 8, fontWeight: 'bold' }}>Description:</Text>
+        <Text>{details.description}</Text>
+
+        <Text style={{ marginTop: 8, fontWeight: 'bold' }}>Symptoms:</Text>
+        <Text>{details.symptoms}</Text>
+
+        <Text style={{ marginTop: 8, fontWeight: 'bold' }}>Prevention:</Text>
+        <Text>{details.prevention}</Text>
+
+        <Text style={{ marginTop: 8, fontWeight: 'bold' }}>Treatment:</Text>
+        <Text>{details.treatment}</Text>
+
+        {other_predictions && other_predictions.length > 0 && (
+          <>
+            <Text style={{ marginTop: 8, fontWeight: 'bold' }}>Other Possibilities:</Text>
+            {other_predictions.map((p: any, i: number) => (
+              <Text key={i}>• {p.disease} ({p.confidence.toFixed(2)}%)</Text>
+            ))}
+          </>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.chatContainer}>
@@ -121,13 +152,18 @@ export default function Home() {
             {message.image && (
               <Image source={{ uri: message.image }} style={styles.messageImage} />
             )}
-            <Text
-              style={[
-                styles.messageText,
-                message.isUser ? styles.userMessageText : styles.aiMessageText,
-              ]}>
-              {message.text}
-            </Text>
+
+            {message.prediction ? (
+              <PredictionDetails prediction={message.prediction} />
+            ) : (
+              <Text
+                style={[
+                  styles.messageText,
+                  message.isUser ? styles.userMessageText : styles.aiMessageText,
+                ]}>
+                {message.text}
+              </Text>
+            )}
           </View>
         ))}
       </ScrollView>
