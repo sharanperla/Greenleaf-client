@@ -1,15 +1,15 @@
 import { useChat } from '@/contexts/ChatContext';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
   Button,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
   ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const Community = () => {
@@ -48,17 +48,17 @@ const Community = () => {
       const data = JSON.parse(event.data);
       if (data.type === 'chat_message') {
         setMessages((prev) => [
-          ...prev,
-          {
-            id: data.id || Date.now(),
-            content: data.message,
-            user: {
-              id: data.user_id,
-              username: data.username,
-            },
-            created_at: data.created_at,
-          },
-        ]);
+  ...prev,
+  {
+    id: data.id || Date.now(),
+    content: data.message,
+    user: {
+      id: data.user_id,
+      username: data.username,
+    },
+    created_at: data.created_at,
+  } as any,
+]);
       }
     };
 

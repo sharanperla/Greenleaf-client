@@ -1,16 +1,19 @@
 import { useDisease } from '@/contexts/DiseaseContext';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 type Disease = {
   id: string;
+  display_name: string;
+  image_url: string;
   name: string;
   scientific_name?: string;
   description?: string;
@@ -66,22 +69,24 @@ export default function Diseases() {
         activeOpacity={0.7}
       >
         <View style={styles.headerRow}>
+          {item.image_url ? (
+            <Image source={{ uri: item.image_url }} style={styles.diseaseImage} />
+          ) : (
+            <View style={[styles.diseaseImage, styles.placeholderImage]}>
+              <Text style={styles.placeholderText}>No Image</Text>
+            </View>
+          )}
           <Text style={styles.diseaseName}>{item.name}</Text>
-          {item.updated_at ? (
-            <Text style={styles.updatedAt}>
-              {new Date(item.updated_at).toLocaleDateString()}
-            </Text>
-          ) : null}
         </View>
-        {item.symptoms ? (
-          <Text style={styles.symptomsPreview} numberOfLines={isExpanded ? 0 : 2}>
-            <Text style={styles.bold}>Symptoms: </Text>
-            {item.symptoms}
-          </Text>
-        ) : null}
 
         {isExpanded && (
           <View style={styles.expandedContent}>
+            {item.name && (
+              <Text style={styles.section}>
+                <Text style={styles.bold}>Name: </Text>
+                {item.name}
+              </Text>
+            )}
             {item.scientific_name && (
               <Text style={styles.scientificName}>
                 <Text style={styles.bold}>Scientific Name: </Text>
@@ -94,6 +99,12 @@ export default function Diseases() {
                 {item.description}
               </Text>
             )}
+            {item.symptoms && (
+              <Text style={styles.section}>
+                <Text style={styles.bold}>Symptoms: </Text>
+                {item.symptoms}
+              </Text>
+            )}
             {item.prevention && (
               <Text style={styles.section}>
                 <Text style={styles.bold}>Prevention: </Text>
@@ -104,6 +115,11 @@ export default function Diseases() {
               <Text style={styles.section}>
                 <Text style={styles.bold}>Treatment: </Text>
                 {item.treatment}
+              </Text>
+            )}
+            {item.updated_at && (
+              <Text style={styles.updatedAt}>
+                Last updated: {new Date(item.updated_at).toLocaleDateString()}
               </Text>
             )}
           </View>
@@ -143,27 +159,28 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
+  diseaseImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#ccc',
+  },
+  placeholderImage: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    color: '#666',
+    fontSize: 12,
+  },
   diseaseName: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: '#2E7D32',
     flexShrink: 1,
-  },
-  updatedAt: {
-    fontSize: 12,
-    color: '#999',
-  },
-  symptomsPreview: {
-    marginTop: 6,
-    fontSize: 14,
-    color: '#555',
-  },
-  bold: {
-    fontWeight: '600',
-    color: '#2E7D32',
   },
   expandedContent: {
     marginTop: 12,
@@ -180,6 +197,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#555',
     marginBottom: 8,
+  },
+  bold: {
+    fontWeight: '600',
+    color: '#2E7D32',
+  },
+  updatedAt: {
+    fontSize: 12,
+    color: '#999',
   },
   separator: {
     height: 12,

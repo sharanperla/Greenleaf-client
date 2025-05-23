@@ -11,7 +11,7 @@ type Room = {
   // add other room props if needed
 };
 
-type Message = {
+export type Message = {
   id: string | number;
   text: string;
   user: string; // or userId
