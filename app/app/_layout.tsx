@@ -20,7 +20,7 @@ export default function AppLayout() {
         options={{ title: "Desease Library" }}
       />
       <Drawer.Screen
-        name="community"
+        name="community/index"
         options={{ title: "Community" }}
       />
          <Drawer.Screen
