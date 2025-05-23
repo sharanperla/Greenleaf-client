@@ -1,7 +1,7 @@
 import { API_BASE_URL } from '@/utils/config';
 import React, { createContext, ReactNode, useContext, useState } from 'react';
 import { Alert } from 'react-native';
-import { useAuth } from './AuthContext'; // your auth hook
+import { useAuth } from './AuthContext';
 
 type Room = {
   id: string | number;
@@ -31,6 +31,7 @@ type ChatContextType = {
     imageUri: string,
     mimeType?: string
   ) => Promise<void>;
+  createRoom: (name: string, description?: string) => Promise<void>;
   setCurrentRoom: React.Dispatch<React.SetStateAction<Room | null>>;
 };
 
@@ -46,7 +47,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
   const baseUrl = `${API_BASE_URL}/api/chat`;
 
-  // 1. List rooms
   const fetchRooms = async () => {
     if (!token) return;
     setLoading(true);
@@ -56,8 +56,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to load rooms');
-      const data: Room[] = await res.json();
-      setRooms(data);
+      setRooms(await res.json());
     } catch (err: any) {
       setError(err.message);
       Alert.alert('Error', err.message);
@@ -66,7 +65,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // 2. Get messages
   const fetchMessages = async (roomId: string | number) => {
     if (!token) return;
     setLoading(true);
@@ -76,10 +74,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to fetch messages');
-      const data: Message[] = await res.json();
-      console.log(data,'-> this is messages to show');
-      
-      setMessages(data);
+      setMessages(await res.json());
     } catch (err: any) {
       setError(err.message);
       Alert.alert('Error', err.message);
@@ -88,14 +83,12 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // 3. Send text
   const sendMessage = async (roomId: string | number, text: string) => {
     if (!token) return;
     try {
       const formData = new FormData();
       formData.append('content', text);
       formData.append('room', String(roomId));
-
       const res = await fetch(`${baseUrl}/messages/`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -103,13 +96,12 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       });
       if (!res.ok) throw new Error('Failed to send message');
       const newMsg: Message = await res.json();
-      setMessages((prev) => [...prev, newMsg]);
+      setMessages(prev => [...prev, newMsg]);
     } catch (err: any) {
       Alert.alert('Error', err.message);
     }
   };
 
-  // 4. Send image
   const sendImageMessage = async (
     roomId: string | number,
     imageUri: string,
@@ -124,20 +116,37 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         type: mimeType,
         name: `upload.${mimeType.split('/')[1]}`,
       } as any);
-
       const res = await fetch(`${baseUrl}/messages/upload_image/`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          // 'Content-Type': 'multipart/form-data',
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
       if (!res.ok) throw new Error('Failed to send image');
       const newMsg: Message = await res.json();
-      setMessages((prev) => [...prev, newMsg]);
+      setMessages(prev => [...prev, newMsg]);
     } catch (err: any) {
       Alert.alert('Error', err.message);
+    }
+  };
+
+  const createRoom = async (name: string, description = '') => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${baseUrl}/rooms/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, description }),
+      });
+      if (!res.ok) throw new Error('Failed to create room');
+      await fetchRooms();
+    } catch (err: any) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -153,6 +162,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         fetchMessages,
         sendMessage,
         sendImageMessage,
+        createRoom,
         setCurrentRoom,
       }}
     >
